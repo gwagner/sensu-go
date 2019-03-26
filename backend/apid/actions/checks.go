@@ -52,8 +52,8 @@ func NewCheckController(store store.CheckConfigStore, getter types.QueueGetter) 
 	}
 }
 
-// Query returns resources available to the viewer.
-func (a CheckController) Query(ctx context.Context) ([]*types.CheckConfig, string, error) {
+// List returns resources available to the viewer.
+func (a CheckController) List(ctx context.Context) ([]corev2.Resource, string, error) {
 	pageSize := corev2.PageSizeFromContext(ctx)
 	continueToken := corev2.PageContinueFromContext(ctx)
 
@@ -66,7 +66,12 @@ func (a CheckController) Query(ctx context.Context) ([]*types.CheckConfig, strin
 	// Encode the continue token with base64url (RFC 4648), without padding
 	encodedNewContinueToken := base64.RawURLEncoding.EncodeToString([]byte(newContinueToken))
 
-	return results, encodedNewContinueToken, nil
+	resources := make([]corev2.Resource, len(results))
+	for i, v := range results {
+		resources[i] = corev2.Resource(v)
+	}
+
+	return resources, encodedNewContinueToken, nil
 }
 
 // Find returns resource associated with given parameters if available to the

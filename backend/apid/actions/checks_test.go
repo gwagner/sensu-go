@@ -102,7 +102,7 @@ func TestCheckQuery(t *testing.T) {
 				Return(tc.records, tc.continueToken, tc.storeErr)
 
 			// Exec Query
-			results, continueToken, err := actions.Query(tc.ctx)
+			results, continueToken, err := actions.List(tc.ctx)
 
 			// Assert
 			assert.EqualValues(tc.expectedErr, err)

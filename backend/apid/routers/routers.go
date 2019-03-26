@@ -15,8 +15,45 @@ type errorBody struct {
 	Code    uint32 `json:"code"`
 }
 
-// respondWith given writer and resource, marshal to JSON and write response.
-func respondWith(w http.ResponseWriter, resources interface{}) {
+// // ResponseFunc ...
+// type ResponseFunc func(resources interface{}) http.Handler
+
+// // ResponseHandler ...
+// var ResponseHandler ResponseFunc
+
+// func respond(resources interface{}) http.Handler {
+// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// 		// Set content-type to JSON
+// 		w.Header().Set("Content-Type", "application/json")
+
+// 		// If no resource(s) are present return a 204 response code
+// 		if resources == nil {
+// 			w.WriteHeader(http.StatusNoContent)
+// 			return
+// 		}
+
+// 		// Marshal
+// 		bytes, err := json.Marshal(resources)
+// 		if err != nil {
+// 			WriteError(w, err)
+// 			return
+// 		}
+
+// 		// Write response
+// 		if _, err := w.Write(bytes); err != nil {
+// 			logger.WithError(err).Error("failed to write response")
+// 			WriteError(w, err)
+// 		}
+// 	})
+// }
+
+// func init() {
+// 	// ResponseHandler = responseHandler{}
+// 	ResponseHandler = respond
+// }
+
+// RespondWith given writer and resource, marshal to JSON and write response.
+func RespondWith(w http.ResponseWriter, resources interface{}) {
 	// Set content-type to JSON
 	w.Header().Set("Content-Type", "application/json")
 
@@ -29,19 +66,19 @@ func respondWith(w http.ResponseWriter, resources interface{}) {
 	// Marshal
 	bytes, err := json.Marshal(resources)
 	if err != nil {
-		writeError(w, err)
+		WriteError(w, err)
 		return
 	}
 
 	// Write response
 	if _, err := w.Write(bytes); err != nil {
 		logger.WithError(err).Error("failed to write response")
-		writeError(w, err)
+		WriteError(w, err)
 	}
 }
 
-// writeError writes error response in JSON format.
-func writeError(w http.ResponseWriter, err error) {
+// WriteError writes error response in JSON format.
+func WriteError(w http.ResponseWriter, err error) {
 	const fallback = `{"message": "failed to marshal error message"}`
 
 	errBody := errorBody{}
@@ -116,25 +153,27 @@ func HTTPStatusFromCode(code actions.ErrCode) int {
 //
 func actionHandler(action actionHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		records, err := action(r)
+		resources, err := action(r)
 		if err != nil {
-			writeError(w, err)
+			WriteError(w, err)
 			return
 		}
 
-		respondWith(w, records)
+		// ResponseHandler(resources).ServeHTTP(w, r)
+		//responseHandler{resources}.ServeHTTP(w, r)
+		RespondWith(w, resources)
 	}
 }
 
 func listHandler(fn listHandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		records, err := fn(w, r)
+		resources, err := fn(w, r)
 		if err != nil {
-			writeError(w, err)
+			WriteError(w, err)
 			return
 		}
 
-		respondWith(w, records)
+		RespondWith(w, resources)
 	}
 }
 

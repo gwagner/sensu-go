@@ -17,7 +17,7 @@ import (
 type CheckController interface {
 	Create(context.Context, types.CheckConfig) error
 	CreateOrReplace(context.Context, types.CheckConfig) error
-	Query(context.Context) ([]*types.CheckConfig, string, error)
+	List(context.Context) ([]corev2.Resource, string, error)
 	Find(context.Context, string) (*types.CheckConfig, error)
 	Destroy(context.Context, string) error
 	AddCheckHook(context.Context, string, types.HookList) error
@@ -46,10 +46,13 @@ func (r *ChecksRouter) Mount(parent *mux.Router) {
 
 	routes.Del(r.destroy)
 	routes.Get(r.find)
-	routes.List(r.list)
+	//routes.List(r.list)
 	routes.ListAllNamespaces(r.list, "/{resource:checks}")
 	routes.Post(r.create)
 	routes.Put(r.createOrReplace)
+
+	routes.Router.HandleFunc(routes.PathPrefix, listerHandler(r.controller.List))
+	//r.Router.HandleFunc(r.PathPrefix, listHandler(fn)).Methods(http.MethodGet)
 
 	// Custom
 	routes.Path("{id}/hooks/{type}", r.addCheckHook).Methods(http.MethodPut)
@@ -60,7 +63,7 @@ func (r *ChecksRouter) Mount(parent *mux.Router) {
 }
 
 func (r *ChecksRouter) list(w http.ResponseWriter, req *http.Request) (interface{}, error) {
-	records, continueToken, err := r.controller.Query(req.Context())
+	records, continueToken, err := r.controller.List(req.Context())
 
 	if continueToken != "" {
 		w.Header().Set(corev2.PaginationContinueHeader, continueToken)
@@ -146,17 +149,17 @@ func (r *ChecksRouter) removeCheckHook(req *http.Request) (interface{}, error) {
 func (r *ChecksRouter) adhocRequest(w http.ResponseWriter, req *http.Request) {
 	adhocReq := types.AdhocRequest{}
 	if err := UnmarshalBody(req, &adhocReq); err != nil {
-		writeError(w, err)
+		WriteError(w, err)
 		return
 	}
 	params := mux.Vars(req)
 	id, err := url.PathUnescape(params["id"])
 	if err != nil {
-		writeError(w, err)
+		WriteError(w, err)
 		return
 	}
 	if err := r.controller.QueueAdhocRequest(req.Context(), id, &adhocReq); err != nil {
-		writeError(w, err)
+		WriteError(w, err)
 		return
 	}
 
@@ -164,12 +167,12 @@ func (r *ChecksRouter) adhocRequest(w http.ResponseWriter, req *http.Request) {
 	response["issued"] = time.Now().Unix()
 	jsonResponse, err := json.Marshal(response)
 	if err != nil {
-		writeError(w, err)
+		WriteError(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusAccepted)
 	if _, err := w.Write(jsonResponse); err != nil {
-		writeError(w, err)
+		WriteError(w, err)
 	}
 }
